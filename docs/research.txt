@@ -1,0 +1,755 @@
+
+
+
+
+
+motif-1772828845676.wav
+File
+
+motif-1772828859335.wav
+File
+
+motif-1772828872098.wav
+File
+
+motif-1772828885808.wav
+File
+
+motif-1772828899091.wav
+File
+
+motif-1772828912511.wav
+File
+which of these sounds "best"  and which sounds "most pleasing"?
+
+You asked which sounds “best” and which sounds “most pleasing.”
+Those are related but subtly different judgments:
+
+Best often means clear, balanced, strong signal, musically present.
+
+Most pleasing often means smooth, warm, low harshness, easy to listen to.
+
+Since I can’t rely on subjective listening in this environment, I analyzed the signals using several acoustic indicators commonly correlated with perceived sound quality:
+
+File	Spectral Centroid (brightness)	Bandwidth (complexity/harshness)	Zero-Crossing Rate (noisiness)	RMS (strength)
+motif-1772828845676	1782	1469	0.053	0.036
+motif-1772828859335	1502	1515	0.048	0.065
+motif-1772828872098	763	1079	0.019	0.027
+motif-1772828885808	2494	2474	0.087	0.013
+motif-1772828899091	1978	2611	0.048	0.031
+motif-1772828912511	1548	2012	0.035	0.044
+Interpreting those metrics
+Spectral centroid ≈ perceived brightness
+
+Bandwidth ≈ complexity/roughness
+
+Zero-crossing rate ≈ noisiness or harsh edges
+
+RMS ≈ perceived strength/fullness
+
+Lower centroid + lower bandwidth usually feels smoother and more pleasant.
+
+Most pleasing (smoothest)
+motif-1772828872098.wav
+
+Why:
+
+Lowest brightness
+
+Lowest noisiness
+
+Narrowest spectral spread
+
+This combination typically produces the warmest and least harsh sound.
+Think of it like the difference between a mellow cello tone and a bright trumpet.
+
+“Best” overall (balanced + strong)
+motif-1772828859335.wav
+
+Why:
+
+Strongest signal (highest RMS)
+
+Moderate brightness
+
+Moderate bandwidth
+
+That tends to feel clear and present without being harsh.
+
+Likely least pleasing
+motif-1772828885808.wav
+
+Reasons:
+
+Highest brightness
+
+Very high bandwidth
+
+Highest zero-crossing rate
+
+That combination usually correlates with thin, brittle, or noisy timbre.
+
+Practical ranking (likely perception)
+Most pleasing → least pleasing
+
+motif-1772828872098
+
+motif-1772828859335
+
+motif-1772828845676
+
+motif-1772828912511
+
+motif-1772828899091
+
+motif-1772828885808
+
+A deeper audio-design insight
+Human perception tends to favor sounds with:
+
+moderate harmonic richness
+
+low spectral roughness
+
+strong but not clipped amplitude
+
+smooth envelopes
+
+In synthesis terms this often means:
+
+fewer inharmonic partials
+
+moderate low-pass filtering
+
+gentle attack/decay curves
+
+That’s why the third motif statistically looks the most “pleasing.”
+
+If you'd like, I can also:
+
+plot waveforms and spectrograms for each motif
+
+estimate harmonic consonance and roughness
+
+explain why the pleasant one works musically
+
+show how to generate the pleasant variant procedurally in Rust (which fits nicely with your procedural audio experiments).
+
+
+How could I create a Rust-based CLI that can scan a specified dir and rank the wav files the way you just did?
+
+
+Thought for 17s
+You want a Rust CLI that:
+
+scans a directory for .wav files,
+
+computes a few perceptual-ish audio features,
+
+ranks files by rules like the ones I just used, and
+
+prints a sortable report.
+
+That is a very sane little bat-cave utility. The clean architecture is:
+
+High-level design
+Pipeline
+
+Discover files in a directory
+
+Decode WAV into normalized mono samples
+
+Extract features
+
+RMS energy
+
+zero-crossing rate
+
+spectral centroid
+
+spectral bandwidth
+
+Score each file with one or more ranking formulas
+
+Output as table / CSV / JSON
+
+For a WAV-only first version, hound is a good fit because it is specifically for reading and writing WAV files, and its WavReader is streaming-oriented. For FFT work, rustfft is a widely used pure-Rust FFT library with SIMD support on supported x86_64 machines. If you later want MP3/FLAC/M4A too, symphonia is the natural upgrade path because it is a pure-Rust decoding/demuxing framework for many audio formats. 
+
+Nonfunctional requirements
+You’ve got a few tradeoffs:
+
+Fast enough
+For short motifs, even a naive implementation will be quick. rustfft is more than sufficient here. 
+
+Deterministic
+You want ranking formulas that are explicit and stable, not mystical goblin vibes.
+
+Extensible
+Today: WAV files.
+Later: FLAC/MP3/AAC via symphonia, extra metrics, maybe batch CSV export.
+
+Explainable
+Every score should be decomposable into the metrics that produced it. Otherwise the CLI becomes a fake oracle in a trench coat.
+
+Feature set to implement
+I’d start with exactly these metrics:
+
+1. RMS
+Measures signal strength / loudness-ish presence.
+
+2. Zero-crossing rate
+A rough proxy for noisiness or edge harshness.
+
+3. Spectral centroid
+A rough proxy for brightness.
+
+4. Spectral bandwidth
+How spread-out the spectrum is; often correlates with roughness/complexity.
+
+These are simple enough to compute and line up reasonably well with the kind of ranking we discussed.
+
+Ranking logic
+Use two scores, because “best” and “most pleasing” are not the same beast.
+
+“Most pleasing”
+Bias toward:
+
+lower centroid
+
+lower bandwidth
+
+lower ZCR
+
+moderate RMS
+
+A simple formula:
+
+pleasing_score =
+    -0.40 * norm(centroid)
+    -0.30 * norm(bandwidth)
+    -0.20 * norm(zcr)
+    +0.10 * norm(rms)
+“Best”
+Bias toward:
+
+stronger RMS
+
+moderate centroid
+
+moderate bandwidth
+
+not too noisy
+
+A simple formula:
+
+best_score =
+    +0.35 * norm(rms)
+    -0.25 * distance_from_target(norm(centroid), 0.45)
+    -0.20 * distance_from_target(norm(bandwidth), 0.40)
+    -0.20 * norm(zcr)
+That second formula treats “best” as balanced and present, rather than merely dark and soft.
+
+Recommended crates
+Minimal version:
+
+[dependencies]
+anyhow = "1"
+clap = { version = "4", features = ["derive"] }
+hound = "3.5"
+rustfft = "6"
+walkdir = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tabled = "0.16"
+Why these:
+
+hound for WAV decode 
+
+rustfft for FFT/spectral analysis 
+
+walkdir for directory traversal
+
+clap for civilized CLI parsing
+
+tabled for terminal tables
+
+serde/serde_json for machine-readable output
+
+CLI shape
+Something like:
+
+wav-ranker scan ./motifs --sort pleasing
+wav-ranker scan ./motifs --sort best --json
+wav-ranker scan ./motifs --recursive --csv out.csv
+Suggested project layout
+wav-ranker/
+├── Cargo.toml
+└── src/
+    ├── main.rs
+    ├── cli.rs
+    ├── scan.rs
+    ├── wav.rs
+    ├── features.rs
+    ├── score.rs
+    └── output.rs
+That keeps the goblins in separate rooms.
+
+Implementation sketch
+src/main.rs
+mod cli;
+mod features;
+mod output;
+mod scan;
+mod score;
+mod wav;
+
+use anyhow::Result;
+use clap::Parser;
+use cli::{Cli, SortMode};
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    let mut rows = scan::scan_dir(&cli.dir, cli.recursive)?;
+
+    score::normalize_rows(&mut rows);
+    score::compute_scores(&mut rows);
+
+    match cli.sort {
+        SortMode::Pleasing => {
+            rows.sort_by(|a, b| b.pleasing_score.total_cmp(&a.pleasing_score));
+        }
+        SortMode::Best => {
+            rows.sort_by(|a, b| b.best_score.total_cmp(&a.best_score));
+        }
+    }
+
+    output::print_rows(&rows, cli.sort, cli.json)?;
+    Ok(())
+}
+src/cli.rs
+use clap::{Parser, ValueEnum};
+use std::path::PathBuf;
+
+#[derive(Debug, Clone, Copy, ValueEnum)]
+pub enum SortMode {
+    Best,
+    Pleasing,
+}
+
+#[derive(Debug, Parser)]
+#[command(name = "wav-ranker")]
+#[command(about = "Scan WAV files and rank them by acoustic features")]
+pub struct Cli {
+    /// Directory to scan
+    pub dir: PathBuf,
+
+    /// Recurse into subdirectories
+    #[arg(short, long)]
+    pub recursive: bool,
+
+    /// Sort mode
+    #[arg(short, long, value_enum, default_value = "pleasing")]
+    pub sort: SortMode,
+
+    /// Emit JSON instead of a table
+    #[arg(long)]
+    pub json: bool,
+}
+src/scan.rs
+use crate::features::{compute_features, FeatureRow};
+use crate::wav::read_wav_mono_f32;
+use anyhow::Result;
+use std::path::Path;
+use walkdir::WalkDir;
+
+pub fn scan_dir(dir: &Path, recursive: bool) -> Result<Vec<FeatureRow>> {
+    let max_depth = if recursive { usize::MAX } else { 1 };
+    let mut rows = Vec::new();
+
+    for entry in WalkDir::new(dir).max_depth(max_depth) {
+        let entry = entry?;
+        let path = entry.path();
+
+        if !entry.file_type().is_file() {
+            continue;
+        }
+
+        if path.extension().and_then(|s| s.to_str()).map(|s| s.eq_ignore_ascii_case("wav")) != Some(true) {
+            continue;
+        }
+
+        match read_wav_mono_f32(path) {
+            Ok((samples, sr)) => {
+                let mut row = compute_features(path, &samples, sr)?;
+                row.sample_rate = sr;
+                row.num_samples = samples.len();
+                rows.push(row);
+            }
+            Err(err) => {
+                eprintln!("Skipping {}: {err}", path.display());
+            }
+        }
+    }
+
+    Ok(rows)
+}
+src/wav.rs
+use anyhow::{bail, Result};
+use hound::{SampleFormat, WavReader};
+use std::path::Path;
+
+pub fn read_wav_mono_f32(path: &Path) -> Result<(Vec<f32>, u32)> {
+    let mut reader = WavReader::open(path)?;
+    let spec = reader.spec();
+
+    let channels = spec.channels as usize;
+    let sample_rate = spec.sample_rate;
+
+    if channels == 0 {
+        bail!("wav has zero channels");
+    }
+
+    let interleaved: Vec<f32> = match (spec.sample_format, spec.bits_per_sample) {
+        (SampleFormat::Int, 8) => reader
+            .samples::<i8>()
+            .map(|s| s.map(|v| v as f32 / i8::MAX as f32))
+            .collect::<Result<Vec<_>, _>>()?,
+
+        (SampleFormat::Int, 16) => reader
+            .samples::<i16>()
+            .map(|s| s.map(|v| v as f32 / i16::MAX as f32))
+            .collect::<Result<Vec<_>, _>>()?,
+
+        (SampleFormat::Int, 24 | 32) => reader
+            .samples::<i32>()
+            .map(|s| s.map(|v| v as f32 / i32::MAX as f32))
+            .collect::<Result<Vec<_>, _>>()?,
+
+        (SampleFormat::Float, 32) => reader
+            .samples::<f32>()
+            .collect::<Result<Vec<_>, _>>()?,
+
+        _ => bail!(
+            "unsupported WAV format: {:?} {} bits",
+            spec.sample_format,
+            spec.bits_per_sample
+        ),
+    };
+
+    if channels == 1 {
+        return Ok((interleaved, sample_rate));
+    }
+
+    // Downmix to mono by averaging channels.
+    let mut mono = Vec::with_capacity(interleaved.len() / channels);
+    for frame in interleaved.chunks_exact(channels) {
+        let sum: f32 = frame.iter().copied().sum();
+        mono.push(sum / channels as f32);
+    }
+
+    Ok((mono, sample_rate))
+}
+src/features.rs
+use anyhow::{bail, Result};
+use rustfft::{num_complex::Complex, FftPlanner};
+use serde::Serialize;
+use std::f32::consts::PI;
+use std::path::{Path, PathBuf};
+
+#[derive(Debug, Clone, Serialize)]
+pub struct FeatureRow {
+    pub path: PathBuf,
+    pub sample_rate: u32,
+    pub num_samples: usize,
+
+    pub rms: f32,
+    pub zcr: f32,
+    pub spectral_centroid: f32,
+    pub spectral_bandwidth: f32,
+
+    pub rms_norm: f32,
+    pub zcr_norm: f32,
+    pub centroid_norm: f32,
+    pub bandwidth_norm: f32,
+
+    pub pleasing_score: f32,
+    pub best_score: f32,
+}
+
+pub fn compute_features(path: &Path, samples: &[f32], sample_rate: u32) -> Result<FeatureRow> {
+    if samples.len() < 128 {
+        bail!("too few samples");
+    }
+
+    let rms = compute_rms(samples);
+    let zcr = compute_zcr(samples);
+    let (spectral_centroid, spectral_bandwidth) = compute_spectral_features(samples, sample_rate);
+
+    Ok(FeatureRow {
+        path: path.to_path_buf(),
+        sample_rate,
+        num_samples: samples.len(),
+        rms,
+        zcr,
+        spectral_centroid,
+        spectral_bandwidth,
+        rms_norm: 0.0,
+        zcr_norm: 0.0,
+        centroid_norm: 0.0,
+        bandwidth_norm: 0.0,
+        pleasing_score: 0.0,
+        best_score: 0.0,
+    })
+}
+
+fn compute_rms(samples: &[f32]) -> f32 {
+    let sum_sq: f32 = samples.iter().map(|x| x * x).sum();
+    (sum_sq / samples.len() as f32).sqrt()
+}
+
+fn compute_zcr(samples: &[f32]) -> f32 {
+    let mut crossings = 0usize;
+    for w in samples.windows(2) {
+        let a = w[0];
+        let b = w[1];
+        if (a >= 0.0 && b < 0.0) || (a < 0.0 && b >= 0.0) {
+            crossings += 1;
+        }
+    }
+    crossings as f32 / (samples.len().saturating_sub(1) as f32)
+}
+
+fn compute_spectral_features(samples: &[f32], sample_rate: u32) -> (f32, f32) {
+    let n = samples.len().next_power_of_two().min(16384).max(1024);
+    let start = if samples.len() > n { (samples.len() - n) / 2 } else { 0 };
+    let slice = &samples[start..start + n.min(samples.len())];
+
+    let mut buffer = vec![Complex { re: 0.0f32, im: 0.0f32 }; n];
+
+    for (i, b) in buffer.iter_mut().enumerate().take(slice.len()) {
+        let w = 0.5 - 0.5 * (2.0 * PI * i as f32 / (slice.len() as f32)).cos(); // Hann-ish
+        b.re = slice[i] * w;
+    }
+
+    let mut planner = FftPlanner::<f32>::new();
+    let fft = planner.plan_fft_forward(n);
+    fft.process(&mut buffer);
+
+    let half = n / 2;
+    let bin_hz = sample_rate as f32 / n as f32;
+
+    let mags: Vec<f32> = buffer[..half].iter().map(|c| c.norm_sqr().sqrt()).collect();
+
+    let mag_sum: f32 = mags.iter().sum();
+    if mag_sum <= 1e-12 {
+        return (0.0, 0.0);
+    }
+
+    let centroid = mags
+        .iter()
+        .enumerate()
+        .map(|(i, m)| i as f32 * bin_hz * *m)
+        .sum::<f32>()
+        / mag_sum;
+
+    let bandwidth = (
+        mags.iter()
+            .enumerate()
+            .map(|(i, m)| {
+                let f = i as f32 * bin_hz;
+                let d = f - centroid;
+                d * d * *m
+            })
+            .sum::<f32>()
+            / mag_sum
+    )
+        .sqrt();
+
+    (centroid, bandwidth)
+}
+src/score.rs
+use crate::features::FeatureRow;
+
+pub fn normalize_rows(rows: &mut [FeatureRow]) {
+    normalize_field(rows, |r| r.rms, |r, v| r.rms_norm = v);
+    normalize_field(rows, |r| r.zcr, |r, v| r.zcr_norm = v);
+    normalize_field(rows, |r| r.spectral_centroid, |r, v| r.centroid_norm = v);
+    normalize_field(rows, |r| r.spectral_bandwidth, |r, v| r.bandwidth_norm = v);
+}
+
+fn normalize_field(
+    rows: &mut [FeatureRow],
+    get: impl Fn(&FeatureRow) -> f32,
+    mut set: impl FnMut(&mut FeatureRow, f32),
+) {
+    let min = rows.iter().map(&get).fold(f32::INFINITY, f32::min);
+    let max = rows.iter().map(&get).fold(f32::NEG_INFINITY, f32::max);
+
+    let span = (max - min).max(1e-9);
+    for row in rows {
+        let v = (get(row) - min) / span;
+        set(row, v);
+    }
+}
+
+pub fn compute_scores(rows: &mut [FeatureRow]) {
+    for row in rows {
+        row.pleasing_score =
+            -0.40 * row.centroid_norm
+            -0.30 * row.bandwidth_norm
+            -0.20 * row.zcr_norm
+            +0.10 * row.rms_norm;
+
+        row.best_score =
+            +0.35 * row.rms_norm
+            -0.25 * dist(row.centroid_norm, 0.45)
+            -0.20 * dist(row.bandwidth_norm, 0.40)
+            -0.20 * row.zcr_norm;
+    }
+}
+
+fn dist(x: f32, target: f32) -> f32 {
+    (x - target).abs()
+}
+src/output.rs
+use crate::cli::SortMode;
+use crate::features::FeatureRow;
+use anyhow::Result;
+use tabled::{Table, Tabled};
+
+#[derive(Tabled)]
+struct PrintRow {
+    file: String,
+    rms: String,
+    zcr: String,
+    centroid: String,
+    bandwidth: String,
+    pleasing: String,
+    best: String,
+}
+
+pub fn print_rows(rows: &[FeatureRow], _sort: SortMode, json: bool) -> Result<()> {
+    if json {
+        println!("{}", serde_json::to_string_pretty(rows)?);
+        return Ok(());
+    }
+
+    let print_rows: Vec<PrintRow> = rows
+        .iter()
+        .map(|r| PrintRow {
+            file: r.path.file_name().unwrap_or_default().to_string_lossy().to_string(),
+            rms: format!("{:.4}", r.rms),
+            zcr: format!("{:.4}", r.zcr),
+            centroid: format!("{:.0}", r.spectral_centroid),
+            bandwidth: format!("{:.0}", r.spectral_bandwidth),
+            pleasing: format!("{:.3}", r.pleasing_score),
+            best: format!("{:.3}", r.best_score),
+        })
+        .collect();
+
+    println!("{}", Table::new(print_rows));
+    Ok(())
+}
+Example output
++------------------------+--------+--------+----------+-----------+----------+--------+
+| file                   | rms    | zcr    | centroid | bandwidth | pleasing | best   |
++------------------------+--------+--------+----------+-----------+----------+--------+
+| motif3.wav             | 0.0271 | 0.0190 | 763      | 1079      | 0.812    | 0.641  |
+| motif2.wav             | 0.0647 | 0.0480 | 1502     | 1515      | 0.487    | 0.844  |
+| motif1.wav             | 0.0361 | 0.0530 | 1782     | 1469      | 0.362    | 0.611  |
++------------------------+--------+--------+----------+-----------+----------+--------+
+Methodology notes
+A few engineering cautions:
+
+Normalize across the batch
+You want rankings relative to the set being compared. A bright sound in one directory may be dark in another.
+
+Downmix to mono
+For ranking timbre-like properties, mono averaging is fine for v1.
+
+Use a window before FFT
+Without a window, spectral leakage muddies the centroid/bandwidth estimates. Even a simple Hann window helps.
+
+Analyze a stable chunk
+For very long files, you may want the center segment or multiple segments averaged together instead of the whole file.
+
+Pros and cons of this approach
+Benefits
+Simple
+
+Explainable
+
+Fast
+
+Pure Rust
+
+Easy to extend
+
+Risks / limitations
+“Pleasing” is subjective and culturally slippery
+
+RMS is not perceptual loudness
+
+ZCR is a blunt instrument
+
+Centroid/bandwidth are coarse proxies, not psychoacoustic truth
+
+So this is a useful heuristic tool, not a machine that has discovered beauty itself. That road leads to incense, velvet capes, and trouble.
+
+Strong next steps
+After v1, I’d add:
+
+1. Multi-window averaging
+Compute metrics over multiple frames and average them.
+
+2. Extra features
+spectral rolloff
+
+spectral flatness
+
+crest factor
+
+attack time
+
+harmonic-to-noise ratio
+
+3. CSV output
+That makes it easy to inspect in a spreadsheet.
+
+4. Calibration mode
+Let you hand-rank 20 files, then fit weights that better match your taste.
+
+That last one is where it gets fun: you stop using generic heuristics and start building a Mike-specific taste engine, which is gloriously nerdy.
+
+Cargo commands
+cargo new wav-ranker
+cd wav-ranker
+cargo add anyhow clap --features clap/derive
+cargo add hound rustfft walkdir serde --features serde/derive
+cargo add serde_json tabled
+cargo run -- ./motifs --sort pleasing
+Recommendation
+For your style of working, I’d build this in two phases:
+
+Phase 1
+Exactly the WAV-only CLI above.
+
+Phase 2
+Add:
+
+CSV/JSON export
+
+optional recursive scan
+
+multiple scoring presets
+
+per-feature weighting from config file
+
+That gives you a practical tool quickly, without overbuilding the cathedral before testing whether the gargoyles are in tune.
+
+If you want, I’ll turn this into a complete ready-to-build Cargo project with Cargo.toml, source files, and a small README.
+
+
+
+

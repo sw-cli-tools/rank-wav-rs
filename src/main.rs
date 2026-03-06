@@ -1,0 +1,55 @@
+//! rank-wav: Scan WAV files and rank them by acoustic features.
+//!
+//! This CLI tool analyzes WAV files in a directory and ranks them based on
+//! perceptual quality metrics including RMS energy, zero-crossing rate,
+//! spectral centroid, and spectral bandwidth.
+
+mod cli;
+mod features;
+mod output;
+mod scan;
+mod score;
+mod wav;
+
+use anyhow::{Result, bail};
+use clap::Parser;
+use cli::{Cli, SortMode};
+
+fn main() -> Result<()> {
+    let cli = Cli::parse();
+
+    if !cli.dir.exists() {
+        bail!("Directory does not exist: {}", cli.dir.display());
+    }
+
+    if !cli.dir.is_dir() {
+        bail!("Not a directory: {}", cli.dir.display());
+    }
+
+    let mut rows = scan::scan_dir(&cli.dir, cli.recursive)?;
+
+    if rows.is_empty() {
+        println!("No WAV files found in {}", cli.dir.display());
+        return Ok(());
+    }
+
+    // Normalize features across the batch
+    score::normalize_rows(&mut rows);
+
+    // Compute ranking scores
+    score::compute_scores(&mut rows);
+
+    // Sort by selected mode (descending - best first)
+    match cli.sort {
+        SortMode::Pleasing => {
+            rows.sort_by(|a, b| b.pleasing_score.total_cmp(&a.pleasing_score));
+        }
+        SortMode::Best => {
+            rows.sort_by(|a, b| b.best_score.total_cmp(&a.best_score));
+        }
+    }
+
+    output::print_rows(&rows, cli.json)?;
+
+    Ok(())
+}
