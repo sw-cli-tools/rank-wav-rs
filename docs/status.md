@@ -1,6 +1,6 @@
 # Project Status
 
-## Current Phase: Phase 1 Complete (MVP)
+## Current Phase: Phase 5 Complete (v1.0)
 
 ### Overall Progress
 
@@ -10,7 +10,7 @@
 | Phase 2: Features | COMPLETE | RMS, ZCR, spectral analysis |
 | Phase 3: Scoring | COMPLETE | Normalization, ranking formulas |
 | Phase 4: Output | COMPLETE | Table and JSON formatting |
-| Phase 5: Quality | In Progress | Docs, tests, polish |
+| Phase 5: Quality | COMPLETE | Docs, tests, polish |
 
 ### Implementation Status
 
@@ -22,9 +22,11 @@
 | scan.rs | Complete | 3 tests |
 | score.rs | Complete | 5 tests |
 | output.rs | Complete | 3 tests |
+| lib.rs | Complete | 1 doc test |
 | main.rs | Complete | - |
+| tests/integration.rs | Complete | 5 tests |
 
-**Total: 22 tests passing**
+**Total: 50 tests passing** (22 unit x2 + 5 integration + 1 doc)
 
 ### Documentation Status
 
@@ -37,24 +39,34 @@
 | plan.md | Complete |
 | status.md | Complete |
 
-### Next Steps
+### Next Steps (Future Phases)
 
-1. **Phase 5: Quality Polish**
-   - Add README with usage examples
-   - Create sample WAV files for testing
-   - Consider additional edge case tests
+1. **Phase 6: CSV Export**
+   - Add --csv flag for CSV output
+   - Output to file or stdout
 
-2. **Future Phases**
-   - CSV export support
-   - Additional spectral features
-   - Multi-format support (symphonia)
+2. **Phase 7: Additional Metrics**
+   - Spectral rolloff
+   - Spectral flatness
+   - Crest factor
+
+3. **Phase 8: Multi-Format Support**
+   - Replace hound with symphonia
+   - Add MP3, FLAC, OGG support
 
 ---
 
 ## Changelog
 
-### 2026-03-06
-- **Phase 1 Implementation Complete**
+### 2026-03-06 (Phase 5)
+- **Phase 5: Quality and Documentation Complete**
+  - Added comprehensive README.md with usage examples
+  - Added lib.rs with public API and doc comments
+  - Added integration tests (5 tests) with synthetic WAV generation
+  - Total: 50 tests passing
+
+### 2026-03-06 (Phase 1-4)
+- **Phase 1-4 Implementation Complete**
   - Updated Cargo.toml with all dependencies
   - Implemented cli.rs with clap derive macros
   - Implemented wav.rs with multi-format WAV support
@@ -63,7 +75,7 @@
   - Implemented score.rs with normalization and ranking
   - Implemented output.rs with table and JSON formatting
   - Wired up main.rs for complete pipeline
-  - All 22 tests passing
+  - 22 unit tests passing
   - Zero clippy warnings
   - Code formatted
 
