@@ -144,4 +144,24 @@ rank-wav ./motifs --csv output.csv
 - Audio playback
 - Spectrogram visualization
 - Machine learning models
-- Custom weight configuration (future v2)
+
+## Future Enhancements (v2+)
+
+### Output Enhancements
+- `--csv` flag for CSV export
+- `--top N` flag to limit output to top N results
+- `--quiet` flag for minimal output (filenames only)
+- `--threshold` flag to filter by minimum score
+
+### Performance
+- Parallel processing with rayon for large directories
+- Watch mode to re-scan on file changes
+
+### Format Support
+- MP3 support via symphonia
+- FLAC support via symphonia
+- OGG support via symphonia
+
+### Advanced Features
+- Calibration mode: accept user rankings, fit custom weights
+- Save/load weight profiles

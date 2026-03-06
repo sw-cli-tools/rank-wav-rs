@@ -154,24 +154,38 @@ Fully documented, tested v1.0 release.
 
 ---
 
-## Future Phases (Post v1.0)
+## Completed Phases
+
+- **Phase 1-4**: Foundation, Features, Scoring, Output (v1.0)
+- **Phase 5**: Quality and Documentation
+- **Phase 7**: Extended Metrics (rolloff, flatness, crest factor)
+- **Phase 8**: Configuration File Support (TOML config, custom weights)
+
+---
+
+## Future Phases (Post v1.2)
 
 ### Phase 6: CSV Export
 - [ ] Add --csv flag
 - [ ] Output to file or stdout
 - [ ] Include all features and scores
 
-### Phase 7: Additional Metrics
-- [ ] Spectral rolloff
-- [ ] Spectral flatness
-- [ ] Crest factor
-
-### Phase 8: Multi-Format Support
+### Phase 9: Multi-Format Support
 - [ ] Replace hound with symphonia
 - [ ] Add MP3 support
 - [ ] Add FLAC support
+- [ ] Add OGG support
 
-### Phase 9: Calibration Mode
+### Phase 10: Output Enhancements
+- [ ] `--top N` flag to limit output to top N results
+- [ ] `--quiet` flag for minimal output (filenames only)
+- [ ] `--threshold` flag to filter by minimum score
+
+### Phase 11: Performance
+- [ ] Parallel processing with rayon for large directories
+- [ ] Watch mode to re-scan on file changes
+
+### Phase 12: Calibration Mode
 - [ ] Accept user rankings
 - [ ] Fit custom weights
 - [ ] Save/load weight profiles
