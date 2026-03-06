@@ -5,6 +5,7 @@
 //! spectral centroid, and spectral bandwidth.
 
 mod cli;
+mod config;
 mod features;
 mod output;
 mod scan;
@@ -14,6 +15,7 @@ mod wav;
 use anyhow::{Result, bail};
 use clap::Parser;
 use cli::{Cli, SortMode};
+use config::Config;
 
 fn main() -> Result<()> {
     let cli = Cli::parse();
@@ -26,7 +28,13 @@ fn main() -> Result<()> {
         bail!("Not a directory: {}", cli.dir.display());
     }
 
-    let mut rows = scan::scan_dir(&cli.dir, cli.recursive, cli.extended)?;
+    // Load configuration (missing or empty file uses defaults)
+    let config = Config::load(&cli.config)?.with_extended(cli.extended);
+
+    // Validate that at least one metric is enabled
+    config.validate()?;
+
+    let mut rows = scan::scan_dir(&cli.dir, cli.recursive, &config)?;
 
     if rows.is_empty() {
         println!("No WAV files found in {}", cli.dir.display());
@@ -37,7 +45,7 @@ fn main() -> Result<()> {
     score::normalize_rows(&mut rows);
 
     // Compute ranking scores
-    score::compute_scores(&mut rows);
+    score::compute_scores(&mut rows, &config);
 
     // Sort by selected mode (descending - best first)
     match cli.sort {
@@ -49,7 +57,7 @@ fn main() -> Result<()> {
         }
     }
 
-    output::print_rows(&rows, cli.json, cli.extended)?;
+    output::print_rows(&rows, cli.json, config.has_extended())?;
 
     Ok(())
 }

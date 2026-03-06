@@ -9,6 +9,7 @@ A Rust CLI tool that scans directories for WAV files and ranks them by acoustic 
 - Optional extended metrics: spectral rolloff, spectral flatness, crest factor
 - Rank files by "pleasing" (warm, smooth) or "best" (balanced, present) scores
 - Output as formatted table or JSON
+- Configurable metrics and scoring weights via TOML config file
 - Supports 8/16/24/32-bit integer and 32-bit float WAV formats
 - Pure Rust implementation (no C dependencies)
 
@@ -37,6 +38,9 @@ rank-wav ./samples -r
 
 # Enable extended metrics (rolloff, flatness, crest factor)
 rank-wav ./samples -e
+
+# Use custom config file
+rank-wav ./samples -c custom-config.toml
 
 # Output as JSON
 rank-wav ./samples --json
@@ -103,13 +107,49 @@ Arguments:
   <DIR>  Directory to scan for WAV files
 
 Options:
-  -r, --recursive      Recurse into subdirectories
-  -s, --sort <SORT>    Sort mode [default: pleasing] [possible values: best, pleasing]
-  -e, --extended       Enable extended metrics (rolloff, flatness, crest factor)
-      --json           Output results as JSON instead of a table
-  -h, --help           Print help
-  -V, --version        Print version
+  -r, --recursive         Recurse into subdirectories
+  -s, --sort <SORT>       Sort mode [default: pleasing] [possible values: best, pleasing]
+  -e, --extended          Enable extended metrics (rolloff, flatness, crest factor)
+  -c, --config <CONFIG>   Configuration file path [default: config.toml]
+      --json              Output results as JSON instead of a table
+  -h, --help              Print help
+  -V, --version           Print version
 ```
+
+## Configuration
+
+Create a `config.toml` file to customize metrics and scoring weights:
+
+```toml
+# Enable/disable individual metrics
+[metrics.basic]
+rms = true
+zcr = true
+spectral_centroid = true
+spectral_bandwidth = true
+
+[metrics.extended]
+spectral_rolloff = false
+spectral_flatness = false
+crest_factor = false
+
+# Customize scoring weights
+[scoring.pleasing]
+centroid_weight = -0.40
+bandwidth_weight = -0.30
+zcr_weight = -0.20
+rms_weight = 0.10
+
+[scoring.best]
+rms_weight = 0.35
+centroid_target = 0.45
+centroid_weight = -0.25
+bandwidth_target = 0.40
+bandwidth_weight = -0.20
+zcr_weight = -0.20
+```
+
+The config file is optional. Missing or empty files use sensible defaults. At least one metric must be enabled.
 
 ## Use Cases
 

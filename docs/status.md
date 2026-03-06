@@ -1,6 +1,6 @@
 # Project Status
 
-## Current Phase: Phase 7 Complete (v1.1)
+## Current Phase: Phase 8 Complete (v1.2)
 
 ### Overall Progress
 
@@ -13,22 +13,24 @@
 | Phase 5: Quality | COMPLETE | Docs, tests, polish |
 | Phase 6: CSV Export | SKIPPED | - |
 | Phase 7: Extended Metrics | COMPLETE | Rolloff, flatness, crest factor |
+| Phase 8: Configuration | COMPLETE | TOML config file, configurable weights |
 
 ### Implementation Status
 
 | Module | Status | Tests |
 |--------|--------|-------|
-| cli.rs | Complete | 3 tests |
+| cli.rs | Complete | 5 tests |
+| config.rs | Complete | 9 tests |
 | wav.rs | Complete | 2 tests |
-| features.rs | Complete | 10 tests |
+| features.rs | Complete | 11 tests |
 | scan.rs | Complete | 4 tests |
-| score.rs | Complete | 5 tests |
+| score.rs | Complete | 6 tests |
 | output.rs | Complete | 5 tests |
-| lib.rs | Complete | 1 doc test |
+| lib.rs | Complete | 2 doc tests |
 | main.rs | Complete | - |
-| tests/integration.rs | Complete | 6 tests |
+| tests/integration.rs | Complete | 7 tests |
 
-**Total: 65 tests passing** (29 unit x2 + 6 integration + 1 doc)
+**Total: 91 tests passing** (41 unit x2 + 7 integration + 2 doc)
 
 ### Documentation Status
 
@@ -47,18 +49,24 @@
    - Add --csv flag for CSV output
    - Output to file or stdout
 
-2. **Phase 7: Additional Metrics**
-   - Spectral rolloff
-   - Spectral flatness
-   - Crest factor
-
-3. **Phase 8: Multi-Format Support**
+2. **Phase 9: Multi-Format Support**
    - Replace hound with symphonia
    - Add MP3, FLAC, OGG support
 
 ---
 
 ## Changelog
+
+### 2026-03-06 (Phase 8)
+- **Phase 8: Configuration File Support Complete**
+  - Added -c/--config flag to specify TOML configuration file
+  - Default config file: config.toml (missing/empty files use defaults)
+  - Configurable basic metrics (rms, zcr, spectral_centroid, spectral_bandwidth)
+  - Configurable extended metrics (spectral_rolloff, spectral_flatness, crest_factor)
+  - Configurable scoring weights for pleasing and best formulas
+  - Config validation ensures at least one metric is enabled
+  - Updated all modules to pass Config through pipeline
+  - Total: 91 tests passing
 
 ### 2026-03-06 (Phase 7)
 - **Phase 7: Extended Metrics Complete**

@@ -3,8 +3,9 @@
 //! This module provides functionality to compute acoustic features from
 //! audio samples, including RMS energy, zero-crossing rate, spectral
 //! centroid, and spectral bandwidth. Extended metrics (rolloff, flatness,
-//! crest factor) are available optionally.
+//! crest factor) are available optionally via configuration.
 
+use crate::config::Config;
 use anyhow::{Result, bail};
 use rustfft::{FftPlanner, num_complex::Complex};
 use serde::Serialize;
@@ -74,7 +75,7 @@ pub struct FeatureRow {
 /// * `path` - Path to the source file (for identification)
 /// * `samples` - Normalized mono f32 samples
 /// * `sample_rate` - Sample rate in Hz
-/// * `extended` - If true, compute extended metrics (rolloff, flatness, crest)
+/// * `config` - Configuration specifying which metrics to compute
 ///
 /// # Returns
 ///
@@ -84,18 +85,56 @@ pub fn compute_features(
     path: &Path,
     samples: &[f32],
     sample_rate: u32,
-    extended: bool,
+    config: &Config,
 ) -> Result<FeatureRow> {
     if samples.len() < 128 {
         bail!("too few samples (need at least 128, got {})", samples.len());
     }
 
-    let rms = compute_rms(samples);
-    let zcr = compute_zcr(samples);
-    let (spectral_centroid, spectral_bandwidth, spectral_rolloff, spectral_flatness) =
-        compute_spectral_features(samples, sample_rate, extended);
+    let basic = &config.metrics.basic;
+    let extended = &config.metrics.extended;
 
-    let crest_factor = if extended {
+    // Compute basic metrics based on config
+    let rms = if basic.rms { compute_rms(samples) } else { 0.0 };
+
+    let zcr = if basic.zcr { compute_zcr(samples) } else { 0.0 };
+
+    // Compute spectral features based on config
+    let compute_spectral = basic.spectral_centroid || basic.spectral_bandwidth;
+    let compute_extended_spectral = extended.spectral_rolloff || extended.spectral_flatness;
+
+    let (spectral_centroid, spectral_bandwidth, spectral_rolloff, spectral_flatness) =
+        if compute_spectral || compute_extended_spectral {
+            compute_spectral_features(samples, sample_rate, compute_extended_spectral)
+        } else {
+            (0.0, 0.0, None, None)
+        };
+
+    // Apply config toggles for basic spectral metrics
+    let spectral_centroid = if basic.spectral_centroid {
+        spectral_centroid
+    } else {
+        0.0
+    };
+    let spectral_bandwidth = if basic.spectral_bandwidth {
+        spectral_bandwidth
+    } else {
+        0.0
+    };
+
+    // Apply config toggles for extended metrics
+    let spectral_rolloff = if extended.spectral_rolloff {
+        spectral_rolloff
+    } else {
+        None
+    };
+    let spectral_flatness = if extended.spectral_flatness {
+        spectral_flatness
+    } else {
+        None
+    };
+
+    let crest_factor = if extended.crest_factor {
         Some(compute_crest_factor(samples, rms))
     } else {
         None
@@ -338,7 +377,8 @@ mod tests {
     #[test]
     fn test_compute_features() {
         let samples: Vec<f32> = (0..1024).map(|i| (i as f32 * 0.1).sin()).collect();
-        let row = compute_features(Path::new("test.wav"), &samples, 44100, false).unwrap();
+        let config = Config::default();
+        let row = compute_features(Path::new("test.wav"), &samples, 44100, &config).unwrap();
 
         assert_eq!(row.path, PathBuf::from("test.wav"));
         assert_eq!(row.sample_rate, 44100);
@@ -352,7 +392,8 @@ mod tests {
     #[test]
     fn test_compute_features_extended() {
         let samples: Vec<f32> = (0..1024).map(|i| (i as f32 * 0.1).sin()).collect();
-        let row = compute_features(Path::new("test.wav"), &samples, 44100, true).unwrap();
+        let config = Config::default().with_extended(true);
+        let row = compute_features(Path::new("test.wav"), &samples, 44100, &config).unwrap();
 
         assert!(row.spectral_rolloff.is_some());
         assert!(row.spectral_flatness.is_some());
@@ -365,7 +406,8 @@ mod tests {
     #[test]
     fn test_too_few_samples() {
         let samples = vec![0.0; 10];
-        let result = compute_features(Path::new("test.wav"), &samples, 44100, false);
+        let config = Config::default();
+        let result = compute_features(Path::new("test.wav"), &samples, 44100, &config);
         assert!(result.is_err());
     }
 
@@ -409,5 +451,38 @@ mod tests {
             flatness_noise.unwrap(),
             flatness_sine.unwrap()
         );
+    }
+
+    #[test]
+    fn test_compute_features_selective_metrics() {
+        use crate::config::{BasicMetrics, ExtendedMetrics, MetricsConfig};
+
+        let samples: Vec<f32> = (0..1024).map(|i| (i as f32 * 0.1).sin()).collect();
+
+        // Config with only RMS and crest factor enabled
+        let mut config = Config::default();
+        config.metrics = MetricsConfig {
+            basic: BasicMetrics {
+                rms: true,
+                zcr: false,
+                spectral_centroid: false,
+                spectral_bandwidth: false,
+            },
+            extended: ExtendedMetrics {
+                spectral_rolloff: false,
+                spectral_flatness: false,
+                crest_factor: true,
+            },
+        };
+
+        let row = compute_features(Path::new("test.wav"), &samples, 44100, &config).unwrap();
+
+        assert!(row.rms > 0.0);
+        assert_eq!(row.zcr, 0.0);
+        assert_eq!(row.spectral_centroid, 0.0);
+        assert_eq!(row.spectral_bandwidth, 0.0);
+        assert!(row.spectral_rolloff.is_none());
+        assert!(row.spectral_flatness.is_none());
+        assert!(row.crest_factor.is_some());
     }
 }

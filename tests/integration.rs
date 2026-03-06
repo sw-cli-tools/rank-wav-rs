@@ -3,7 +3,7 @@
 //! These tests verify the full pipeline from WAV file to ranked output.
 
 use hound::{SampleFormat, WavSpec, WavWriter};
-use rank_wav_rs::{scan, score};
+use rank_wav_rs::{config::Config, scan, score};
 use std::f32::consts::PI;
 use std::fs;
 use std::io::Cursor;
@@ -78,11 +78,12 @@ fn test_full_pipeline_with_synthetic_wavs() {
     fs::write(temp.path().join("noise.wav"), &noise).unwrap();
 
     // Scan and score
-    let mut rows = scan::scan_dir(temp.path(), false, false).unwrap();
+    let config = Config::default();
+    let mut rows = scan::scan_dir(temp.path(), false, &config).unwrap();
     assert_eq!(rows.len(), 3, "Should find 3 WAV files");
 
     score::normalize_rows(&mut rows);
-    score::compute_scores(&mut rows);
+    score::compute_scores(&mut rows, &config);
 
     // Sort by pleasing score
     rows.sort_by(|a, b| b.pleasing_score.total_cmp(&a.pleasing_score));
@@ -116,9 +117,10 @@ fn test_best_score_prefers_strong_signal() {
     let weak = create_sine_wav(1000.0, 0.1, 8192);
     fs::write(temp.path().join("weak.wav"), &weak).unwrap();
 
-    let mut rows = scan::scan_dir(temp.path(), false, false).unwrap();
+    let config = Config::default();
+    let mut rows = scan::scan_dir(temp.path(), false, &config).unwrap();
     score::normalize_rows(&mut rows);
-    score::compute_scores(&mut rows);
+    score::compute_scores(&mut rows, &config);
 
     // Sort by best score
     rows.sort_by(|a, b| b.best_score.total_cmp(&a.best_score));
@@ -142,12 +144,14 @@ fn test_recursive_scan() {
     fs::write(temp.path().join("root.wav"), &wav).unwrap();
     fs::write(subdir.join("nested.wav"), &wav).unwrap();
 
+    let config = Config::default();
+
     // Non-recursive
-    let rows = scan::scan_dir(temp.path(), false, false).unwrap();
+    let rows = scan::scan_dir(temp.path(), false, &config).unwrap();
     assert_eq!(rows.len(), 1, "Non-recursive should find 1 file");
 
     // Recursive
-    let rows = scan::scan_dir(temp.path(), true, false).unwrap();
+    let rows = scan::scan_dir(temp.path(), true, &config).unwrap();
     assert_eq!(rows.len(), 2, "Recursive should find 2 files");
 }
 
@@ -158,9 +162,10 @@ fn test_json_output_structure() {
     let wav = create_sine_wav(440.0, 0.5, 4096);
     fs::write(temp.path().join("test.wav"), &wav).unwrap();
 
-    let mut rows = scan::scan_dir(temp.path(), false, false).unwrap();
+    let config = Config::default();
+    let mut rows = scan::scan_dir(temp.path(), false, &config).unwrap();
     score::normalize_rows(&mut rows);
-    score::compute_scores(&mut rows);
+    score::compute_scores(&mut rows, &config);
 
     // Serialize to JSON
     let json = serde_json::to_string(&rows).unwrap();
@@ -213,7 +218,8 @@ fn test_stereo_downmix() {
 
     fs::write(temp.path().join("stereo.wav"), &buffer).unwrap();
 
-    let rows = scan::scan_dir(temp.path(), false, false).unwrap();
+    let config = Config::default();
+    let rows = scan::scan_dir(temp.path(), false, &config).unwrap();
     assert_eq!(rows.len(), 1);
 
     // Mono samples should be half the stereo frame count
@@ -232,7 +238,8 @@ fn test_extended_metrics() {
     fs::write(temp.path().join("noise.wav"), &noise).unwrap();
 
     // Scan with extended metrics
-    let mut rows = scan::scan_dir(temp.path(), false, true).unwrap();
+    let config = Config::default().with_extended(true);
+    let mut rows = scan::scan_dir(temp.path(), false, &config).unwrap();
     assert_eq!(rows.len(), 2);
 
     // All extended metrics should be present
@@ -266,4 +273,27 @@ fn test_extended_metrics() {
         noise_row.spectral_flatness.unwrap(),
         sine_row.spectral_flatness.unwrap()
     );
+}
+
+#[test]
+fn test_config_file_integration() {
+    use std::path::Path;
+
+    let temp = tempdir().unwrap();
+
+    // Create test WAV
+    let wav = create_sine_wav(440.0, 0.5, 4096);
+    fs::write(temp.path().join("test.wav"), &wav).unwrap();
+
+    // Test with default config (file doesn't exist)
+    let config = Config::load(Path::new("nonexistent.toml")).unwrap();
+    assert!(config.validate().is_ok());
+
+    let rows = scan::scan_dir(temp.path(), false, &config).unwrap();
+    assert_eq!(rows.len(), 1);
+
+    // Test with extended config
+    let config = config.with_extended(true);
+    let rows = scan::scan_dir(temp.path(), false, &config).unwrap();
+    assert!(rows[0].spectral_rolloff.is_some());
 }

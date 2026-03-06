@@ -38,6 +38,10 @@ pub struct Cli {
     /// Enable extended metrics (rolloff, flatness, crest factor).
     #[arg(short, long)]
     pub extended: bool,
+
+    /// Configuration file path (TOML format).
+    #[arg(short, long, default_value = "config.toml")]
+    pub config: PathBuf,
 }
 
 #[cfg(test)]
@@ -68,5 +72,20 @@ mod tests {
 
         let cli = Cli::parse_from(["rank-wav", "./wavs", "--extended"]);
         assert!(cli.extended);
+    }
+
+    #[test]
+    fn test_cli_config_default() {
+        let cli = Cli::parse_from(["rank-wav", "."]);
+        assert_eq!(cli.config, PathBuf::from("config.toml"));
+    }
+
+    #[test]
+    fn test_cli_config_custom() {
+        let cli = Cli::parse_from(["rank-wav", "./wavs", "-c", "custom.toml"]);
+        assert_eq!(cli.config, PathBuf::from("custom.toml"));
+
+        let cli = Cli::parse_from(["rank-wav", "./wavs", "--config", "other.toml"]);
+        assert_eq!(cli.config, PathBuf::from("other.toml"));
     }
 }

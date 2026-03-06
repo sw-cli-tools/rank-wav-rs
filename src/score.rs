@@ -3,6 +3,7 @@
 //! This module provides functionality to normalize raw features across
 //! a batch and compute "pleasing" and "best" ranking scores.
 
+use crate::config::Config;
 use crate::features::FeatureRow;
 
 /// Normalize all features in the batch using min-max scaling.
@@ -93,16 +94,20 @@ fn normalize_optional_field(
 /// - Penalizes deviation from moderate brightness
 /// - Penalizes deviation from moderate complexity
 /// - Penalizes high noisiness
-pub fn compute_scores(rows: &mut [FeatureRow]) {
-    for row in rows {
-        row.pleasing_score =
-            -0.40 * row.centroid_norm - 0.30 * row.bandwidth_norm - 0.20 * row.zcr_norm
-                + 0.10 * row.rms_norm;
+pub fn compute_scores(rows: &mut [FeatureRow], config: &Config) {
+    let p = &config.scoring.pleasing;
+    let b = &config.scoring.best;
 
-        row.best_score = 0.35 * row.rms_norm
-            - 0.25 * dist(row.centroid_norm, 0.45)
-            - 0.20 * dist(row.bandwidth_norm, 0.40)
-            - 0.20 * row.zcr_norm;
+    for row in rows {
+        row.pleasing_score = p.centroid_weight * row.centroid_norm
+            + p.bandwidth_weight * row.bandwidth_norm
+            + p.zcr_weight * row.zcr_norm
+            + p.rms_weight * row.rms_norm;
+
+        row.best_score = b.rms_weight * row.rms_norm
+            + b.centroid_weight * dist(row.centroid_norm, b.centroid_target)
+            + b.bandwidth_weight * dist(row.bandwidth_norm, b.bandwidth_target)
+            + b.zcr_weight * row.zcr_norm;
     }
 }
 
@@ -172,8 +177,9 @@ mod tests {
             make_row(0.3, 0.02, 800.0, 400.0),   // dark, smooth
             make_row(0.3, 0.10, 2500.0, 2000.0), // bright, harsh
         ];
+        let config = Config::default();
         normalize_rows(&mut rows);
-        compute_scores(&mut rows);
+        compute_scores(&mut rows, &config);
 
         // Dark/smooth should have higher pleasing score
         assert!(
@@ -190,8 +196,9 @@ mod tests {
             make_row(0.6, 0.03, 1500.0, 800.0), // strong, balanced
             make_row(0.1, 0.03, 1500.0, 800.0), // weak, balanced
         ];
+        let config = Config::default();
         normalize_rows(&mut rows);
-        compute_scores(&mut rows);
+        compute_scores(&mut rows, &config);
 
         // Strong signal should have higher best score
         assert!(
@@ -207,5 +214,37 @@ mod tests {
         assert!((dist(0.5, 0.5) - 0.0).abs() < 0.001);
         assert!((dist(0.0, 0.5) - 0.5).abs() < 0.001);
         assert!((dist(1.0, 0.5) - 0.5).abs() < 0.001);
+    }
+
+    #[test]
+    fn test_custom_weights() {
+        use crate::config::{BestWeights, PleasingWeights, ScoringConfig};
+
+        let mut rows = vec![make_row(0.5, 0.1, 1000.0, 500.0)];
+        normalize_rows(&mut rows);
+
+        // Custom config with different weights
+        let mut config = Config::default();
+        config.scoring = ScoringConfig {
+            pleasing: PleasingWeights {
+                centroid_weight: 0.0,
+                bandwidth_weight: 0.0,
+                zcr_weight: 0.0,
+                rms_weight: 1.0, // Only RMS matters
+            },
+            best: BestWeights {
+                rms_weight: 1.0,
+                centroid_target: 0.5,
+                centroid_weight: 0.0,
+                bandwidth_target: 0.5,
+                bandwidth_weight: 0.0,
+                zcr_weight: 0.0,
+            },
+        };
+        compute_scores(&mut rows, &config);
+
+        // With only RMS weight, scores should equal rms_norm
+        assert!((rows[0].pleasing_score - rows[0].rms_norm).abs() < 0.001);
+        assert!((rows[0].best_score - rows[0].rms_norm).abs() < 0.001);
     }
 }
