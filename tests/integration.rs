@@ -78,7 +78,7 @@ fn test_full_pipeline_with_synthetic_wavs() {
     fs::write(temp.path().join("noise.wav"), &noise).unwrap();
 
     // Scan and score
-    let mut rows = scan::scan_dir(temp.path(), false).unwrap();
+    let mut rows = scan::scan_dir(temp.path(), false, false).unwrap();
     assert_eq!(rows.len(), 3, "Should find 3 WAV files");
 
     score::normalize_rows(&mut rows);
@@ -116,7 +116,7 @@ fn test_best_score_prefers_strong_signal() {
     let weak = create_sine_wav(1000.0, 0.1, 8192);
     fs::write(temp.path().join("weak.wav"), &weak).unwrap();
 
-    let mut rows = scan::scan_dir(temp.path(), false).unwrap();
+    let mut rows = scan::scan_dir(temp.path(), false, false).unwrap();
     score::normalize_rows(&mut rows);
     score::compute_scores(&mut rows);
 
@@ -143,11 +143,11 @@ fn test_recursive_scan() {
     fs::write(subdir.join("nested.wav"), &wav).unwrap();
 
     // Non-recursive
-    let rows = scan::scan_dir(temp.path(), false).unwrap();
+    let rows = scan::scan_dir(temp.path(), false, false).unwrap();
     assert_eq!(rows.len(), 1, "Non-recursive should find 1 file");
 
     // Recursive
-    let rows = scan::scan_dir(temp.path(), true).unwrap();
+    let rows = scan::scan_dir(temp.path(), true, false).unwrap();
     assert_eq!(rows.len(), 2, "Recursive should find 2 files");
 }
 
@@ -158,7 +158,7 @@ fn test_json_output_structure() {
     let wav = create_sine_wav(440.0, 0.5, 4096);
     fs::write(temp.path().join("test.wav"), &wav).unwrap();
 
-    let mut rows = scan::scan_dir(temp.path(), false).unwrap();
+    let mut rows = scan::scan_dir(temp.path(), false, false).unwrap();
     score::normalize_rows(&mut rows);
     score::compute_scores(&mut rows);
 
@@ -213,9 +213,57 @@ fn test_stereo_downmix() {
 
     fs::write(temp.path().join("stereo.wav"), &buffer).unwrap();
 
-    let rows = scan::scan_dir(temp.path(), false).unwrap();
+    let rows = scan::scan_dir(temp.path(), false, false).unwrap();
     assert_eq!(rows.len(), 1);
 
     // Mono samples should be half the stereo frame count
     assert_eq!(rows[0].num_samples, 4096);
+}
+
+#[test]
+fn test_extended_metrics() {
+    let temp = tempdir().unwrap();
+
+    // Create test WAV files
+    let sine = create_sine_wav(440.0, 0.5, 8192);
+    fs::write(temp.path().join("sine.wav"), &sine).unwrap();
+
+    let noise = create_noise_wav(0.3, 8192);
+    fs::write(temp.path().join("noise.wav"), &noise).unwrap();
+
+    // Scan with extended metrics
+    let mut rows = scan::scan_dir(temp.path(), false, true).unwrap();
+    assert_eq!(rows.len(), 2);
+
+    // All extended metrics should be present
+    for row in &rows {
+        assert!(row.spectral_rolloff.is_some());
+        assert!(row.spectral_flatness.is_some());
+        assert!(row.crest_factor.is_some());
+    }
+
+    // Normalize and verify extended norms are computed
+    score::normalize_rows(&mut rows);
+    for row in &rows {
+        assert!(row.rolloff_norm.is_some());
+        assert!(row.flatness_norm.is_some());
+        assert!(row.crest_norm.is_some());
+    }
+
+    // Noise should have higher flatness than sine
+    let sine_row = rows
+        .iter()
+        .find(|r| r.path.to_string_lossy().contains("sine"))
+        .unwrap();
+    let noise_row = rows
+        .iter()
+        .find(|r| r.path.to_string_lossy().contains("noise"))
+        .unwrap();
+
+    assert!(
+        noise_row.spectral_flatness.unwrap() > sine_row.spectral_flatness.unwrap(),
+        "Noise flatness ({}) should exceed sine flatness ({})",
+        noise_row.spectral_flatness.unwrap(),
+        sine_row.spectral_flatness.unwrap()
+    );
 }

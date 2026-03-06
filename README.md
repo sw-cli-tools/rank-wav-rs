@@ -6,6 +6,7 @@ A Rust CLI tool that scans directories for WAV files and ranks them by acoustic 
 
 - Scan directories for WAV files (with optional recursion)
 - Extract acoustic features: RMS energy, zero-crossing rate, spectral centroid, spectral bandwidth
+- Optional extended metrics: spectral rolloff, spectral flatness, crest factor
 - Rank files by "pleasing" (warm, smooth) or "best" (balanced, present) scores
 - Output as formatted table or JSON
 - Supports 8/16/24/32-bit integer and 32-bit float WAV formats
@@ -34,11 +35,14 @@ rank-wav ./samples --sort best
 # Recursive scan into subdirectories
 rank-wav ./samples -r
 
+# Enable extended metrics (rolloff, flatness, crest factor)
+rank-wav ./samples -e
+
 # Output as JSON
 rank-wav ./samples --json
 
 # Combine options
-rank-wav ./samples -r --sort best --json
+rank-wav ./samples -r -e --sort best --json
 ```
 
 ## Example Output
@@ -73,12 +77,22 @@ Favors clear, balanced, present sounds:
 
 ## Acoustic Features
 
+### Basic Metrics (always computed)
+
 | Feature | Description | Interpretation |
 |---------|-------------|----------------|
 | RMS | Root mean square energy | Signal strength/loudness |
 | ZCR | Zero-crossing rate | Noisiness, high-frequency content |
 | Centroid | Spectral centroid (Hz) | Perceived brightness |
 | Bandwidth | Spectral bandwidth (Hz) | Spectral complexity/spread |
+
+### Extended Metrics (with -e/--extended flag)
+
+| Feature | Description | Interpretation |
+|---------|-------------|----------------|
+| Rolloff | Spectral rolloff (Hz) | Frequency below which 85% of energy lies |
+| Flatness | Spectral flatness (0-1) | 0 = tonal, 1 = noisy |
+| Crest | Crest factor (dB) | Peak to RMS ratio; higher = more dynamic |
 
 ## Command-Line Options
 
@@ -91,6 +105,7 @@ Arguments:
 Options:
   -r, --recursive      Recurse into subdirectories
   -s, --sort <SORT>    Sort mode [default: pleasing] [possible values: best, pleasing]
+  -e, --extended       Enable extended metrics (rolloff, flatness, crest factor)
       --json           Output results as JSON instead of a table
   -h, --help           Print help
   -V, --version        Print version

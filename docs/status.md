@@ -1,6 +1,6 @@
 # Project Status
 
-## Current Phase: Phase 5 Complete (v1.0)
+## Current Phase: Phase 7 Complete (v1.1)
 
 ### Overall Progress
 
@@ -11,22 +11,24 @@
 | Phase 3: Scoring | COMPLETE | Normalization, ranking formulas |
 | Phase 4: Output | COMPLETE | Table and JSON formatting |
 | Phase 5: Quality | COMPLETE | Docs, tests, polish |
+| Phase 6: CSV Export | SKIPPED | - |
+| Phase 7: Extended Metrics | COMPLETE | Rolloff, flatness, crest factor |
 
 ### Implementation Status
 
 | Module | Status | Tests |
 |--------|--------|-------|
-| cli.rs | Complete | 2 tests |
+| cli.rs | Complete | 3 tests |
 | wav.rs | Complete | 2 tests |
-| features.rs | Complete | 6 tests |
-| scan.rs | Complete | 3 tests |
+| features.rs | Complete | 10 tests |
+| scan.rs | Complete | 4 tests |
 | score.rs | Complete | 5 tests |
-| output.rs | Complete | 3 tests |
+| output.rs | Complete | 5 tests |
 | lib.rs | Complete | 1 doc test |
 | main.rs | Complete | - |
-| tests/integration.rs | Complete | 5 tests |
+| tests/integration.rs | Complete | 6 tests |
 
-**Total: 50 tests passing** (22 unit x2 + 5 integration + 1 doc)
+**Total: 65 tests passing** (29 unit x2 + 6 integration + 1 doc)
 
 ### Documentation Status
 
@@ -57,6 +59,17 @@
 ---
 
 ## Changelog
+
+### 2026-03-06 (Phase 7)
+- **Phase 7: Extended Metrics Complete**
+  - Added --extended / -e flag to CLI
+  - Implemented spectral rolloff (frequency below which 85% of energy lies)
+  - Implemented spectral flatness (0=tonal, 1=noisy)
+  - Implemented crest factor (peak to RMS ratio in dB)
+  - Extended metrics are optional and off by default
+  - Updated output to show extended columns when enabled
+  - Added tests for extended metrics
+  - Total: 65 tests passing
 
 ### 2026-03-06 (Phase 5)
 - **Phase 5: Quality and Documentation Complete**

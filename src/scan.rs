@@ -15,12 +15,13 @@ use walkdir::WalkDir;
 ///
 /// * `dir` - Directory to scan
 /// * `recursive` - If true, recurse into subdirectories
+/// * `extended` - If true, compute extended metrics (rolloff, flatness, crest)
 ///
 /// # Returns
 ///
 /// A vector of `FeatureRow` for each successfully processed WAV file.
 /// Files that cannot be read or processed are skipped with a warning.
-pub fn scan_dir(dir: &Path, recursive: bool) -> Result<Vec<FeatureRow>> {
+pub fn scan_dir(dir: &Path, recursive: bool, extended: bool) -> Result<Vec<FeatureRow>> {
     let max_depth = if recursive { usize::MAX } else { 1 };
     let mut rows = Vec::new();
 
@@ -50,7 +51,7 @@ pub fn scan_dir(dir: &Path, recursive: bool) -> Result<Vec<FeatureRow>> {
             continue;
         }
 
-        match process_wav_file(path) {
+        match process_wav_file(path, extended) {
             Ok(row) => rows.push(row),
             Err(err) => {
                 eprintln!("Skipping {}: {err}", path.display());
@@ -62,9 +63,9 @@ pub fn scan_dir(dir: &Path, recursive: bool) -> Result<Vec<FeatureRow>> {
 }
 
 /// Process a single WAV file and return its features.
-fn process_wav_file(path: &Path) -> Result<FeatureRow> {
+fn process_wav_file(path: &Path, extended: bool) -> Result<FeatureRow> {
     let (samples, sample_rate) = read_wav_mono_f32(path)?;
-    let mut row = compute_features(path, &samples, sample_rate)?;
+    let mut row = compute_features(path, &samples, sample_rate, extended)?;
     row.sample_rate = sample_rate;
     row.num_samples = samples.len();
     Ok(row)
@@ -100,7 +101,7 @@ mod tests {
     #[test]
     fn test_scan_empty_dir() {
         let temp = tempfile::tempdir().unwrap();
-        let rows = scan_dir(temp.path(), false).unwrap();
+        let rows = scan_dir(temp.path(), false, false).unwrap();
         assert!(rows.is_empty());
     }
 
@@ -116,7 +117,7 @@ mod tests {
         // Create a non-WAV file
         fs::write(temp.path().join("ignore.txt"), "not a wav").unwrap();
 
-        let rows = scan_dir(temp.path(), false).unwrap();
+        let rows = scan_dir(temp.path(), false, false).unwrap();
         assert_eq!(rows.len(), 2);
     }
 
@@ -131,11 +132,28 @@ mod tests {
         fs::write(subdir.join("nested.wav"), &wav_data).unwrap();
 
         // Non-recursive should find only root
-        let rows = scan_dir(temp.path(), false).unwrap();
+        let rows = scan_dir(temp.path(), false, false).unwrap();
         assert_eq!(rows.len(), 1);
 
         // Recursive should find both
-        let rows = scan_dir(temp.path(), true).unwrap();
+        let rows = scan_dir(temp.path(), true, false).unwrap();
         assert_eq!(rows.len(), 2);
+    }
+
+    #[test]
+    fn test_scan_extended() {
+        let temp = tempfile::tempdir().unwrap();
+        let wav_data = create_test_wav();
+        fs::write(temp.path().join("test.wav"), &wav_data).unwrap();
+
+        // Without extended
+        let rows = scan_dir(temp.path(), false, false).unwrap();
+        assert!(rows[0].spectral_rolloff.is_none());
+
+        // With extended
+        let rows = scan_dir(temp.path(), false, true).unwrap();
+        assert!(rows[0].spectral_rolloff.is_some());
+        assert!(rows[0].spectral_flatness.is_some());
+        assert!(rows[0].crest_factor.is_some());
     }
 }

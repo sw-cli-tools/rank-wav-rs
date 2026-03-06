@@ -18,6 +18,22 @@ pub fn normalize_rows(rows: &mut [FeatureRow]) {
     normalize_field(rows, |r| r.zcr, |r, v| r.zcr_norm = v);
     normalize_field(rows, |r| r.spectral_centroid, |r, v| r.centroid_norm = v);
     normalize_field(rows, |r| r.spectral_bandwidth, |r, v| r.bandwidth_norm = v);
+
+    // Normalize extended metrics if present
+    let has_extended = rows.iter().any(|r| r.spectral_rolloff.is_some());
+    if has_extended {
+        normalize_optional_field(
+            rows,
+            |r| r.spectral_rolloff,
+            |r, v| r.rolloff_norm = Some(v),
+        );
+        normalize_optional_field(
+            rows,
+            |r| r.spectral_flatness,
+            |r, v| r.flatness_norm = Some(v),
+        );
+        normalize_optional_field(rows, |r| r.crest_factor, |r, v| r.crest_norm = Some(v));
+    }
 }
 
 /// Normalize a single field across all rows using min-max scaling.
@@ -33,6 +49,29 @@ fn normalize_field(
     for row in rows {
         let v = (get(row) - min) / span;
         set(row, v);
+    }
+}
+
+/// Normalize an optional field across all rows using min-max scaling.
+fn normalize_optional_field(
+    rows: &mut [FeatureRow],
+    get: impl Fn(&FeatureRow) -> Option<f32>,
+    mut set: impl FnMut(&mut FeatureRow, f32),
+) {
+    let values: Vec<f32> = rows.iter().filter_map(&get).collect();
+    if values.is_empty() {
+        return;
+    }
+
+    let min = values.iter().copied().fold(f32::INFINITY, f32::min);
+    let max = values.iter().copied().fold(f32::NEG_INFINITY, f32::max);
+
+    let span = (max - min).max(1e-9);
+    for row in rows {
+        if let Some(val) = get(row) {
+            let v = (val - min) / span;
+            set(row, v);
+        }
     }
 }
 
@@ -86,10 +125,16 @@ mod tests {
             zcr,
             spectral_centroid: centroid,
             spectral_bandwidth: bandwidth,
+            spectral_rolloff: None,
+            spectral_flatness: None,
+            crest_factor: None,
             rms_norm: 0.0,
             zcr_norm: 0.0,
             centroid_norm: 0.0,
             bandwidth_norm: 0.0,
+            rolloff_norm: None,
+            flatness_norm: None,
+            crest_norm: None,
             pleasing_score: 0.0,
             best_score: 0.0,
         }

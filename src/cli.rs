@@ -34,6 +34,10 @@ pub struct Cli {
     /// Output results as JSON instead of a table.
     #[arg(long)]
     pub json: bool,
+
+    /// Enable extended metrics (rolloff, flatness, crest factor).
+    #[arg(short, long)]
+    pub extended: bool,
 }
 
 #[cfg(test)]
@@ -46,6 +50,7 @@ mod tests {
         assert!(!cli.recursive);
         assert!(matches!(cli.sort, SortMode::Pleasing));
         assert!(!cli.json);
+        assert!(!cli.extended);
     }
 
     #[test]
@@ -54,5 +59,14 @@ mod tests {
         assert!(cli.recursive);
         assert!(matches!(cli.sort, SortMode::Best));
         assert!(cli.json);
+    }
+
+    #[test]
+    fn test_cli_extended_flag() {
+        let cli = Cli::parse_from(["rank-wav", "./wavs", "-e"]);
+        assert!(cli.extended);
+
+        let cli = Cli::parse_from(["rank-wav", "./wavs", "--extended"]);
+        assert!(cli.extended);
     }
 }

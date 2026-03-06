@@ -26,7 +26,7 @@ fn main() -> Result<()> {
         bail!("Not a directory: {}", cli.dir.display());
     }
 
-    let mut rows = scan::scan_dir(&cli.dir, cli.recursive)?;
+    let mut rows = scan::scan_dir(&cli.dir, cli.recursive, cli.extended)?;
 
     if rows.is_empty() {
         println!("No WAV files found in {}", cli.dir.display());
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
         }
     }
 
-    output::print_rows(&rows, cli.json)?;
+    output::print_rows(&rows, cli.json, cli.extended)?;
 
     Ok(())
 }
