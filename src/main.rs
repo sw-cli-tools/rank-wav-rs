@@ -12,12 +12,19 @@ mod scan;
 mod score;
 mod wav;
 
-use anyhow::{Result, bail};
+use anyhow::{bail, Result};
 use clap::Parser;
 use cli::{Cli, SortMode};
 use config::Config;
 
 fn main() -> Result<()> {
+    // Handle version flag with detailed build info
+    let args: Vec<String> = std::env::args().collect();
+    if args.len() > 1 && (args[1] == "-V" || args[1] == "--version") {
+        println!("{}", sw_cli::version!());
+        return Ok(());
+    }
+
     let cli = Cli::parse();
 
     if !cli.dir.exists() {
