@@ -24,6 +24,21 @@ cargo build --release
 # Binary will be at ./target/release/rank-wav
 ```
 
+### Setting up the alias
+
+Add to your shell config (`~/.bashrc`, `~/.zshrc`, etc.):
+
+```bash
+alias rank-wav='/path/to/rank-wav-rs/target/release/rank-wav'
+```
+
+Or install system-wide:
+
+```bash
+cargo install --path .
+# Installs to ~/.cargo/bin/rank-wav (ensure ~/.cargo/bin is in your PATH)
+```
+
 ## Usage
 
 ```bash
