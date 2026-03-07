@@ -1,5 +1,19 @@
 # rank-wav
 
+> ## ⚠️ Development Has Moved
+>
+> **All active development has moved to [sw-music-tools/rank-wav-rs](https://github.com/sw-music-tools/rank-wav-rs).**
+>
+> This repository is archived and maintained only for historical reference (blog posts and videos link here).
+>
+> **Resources:**
+> - **New Repository:** https://github.com/sw-music-tools/rank-wav-rs
+> - **Blog Post:** [rank-wav: Audio Quality Ranking](https://software-wrighter-lab.github.io/2026/03/06/rank-wav-audio-quality-ranking/)
+> - **Discord:** [Join the community](https://discord.com/invite/Ctzk5uHggZ)
+> - **Video:** [Watch on YouTube](https://www.youtube.com/watch?v=F8iP4JLzQ80)
+
+---
+
 A Rust CLI tool that scans directories for WAV files and ranks them by acoustic features correlated with perceived sound quality.
 
 ## Features
